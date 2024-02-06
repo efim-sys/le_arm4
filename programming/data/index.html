@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4 DOF robot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>4 DOF robot control panel</h1>
+    <div class="bigDiv">
+        <div id="FK_div" class="control_div">
+            <input type="range" id="turntable-input" min="-180" max="180"></input>
+            <label id="turntable-label">Поворотный стол</label><br>
+            <input type="range" id="axis1-input" min="-180" max="180"></input>
+            <label id="axis1-label">Ось 1, плечо</label><br>
+            <input type="range" id="axis2-input" min="-180" max="180"></input>
+            <label id="axis2-label">Ось 2, локоть</label><br>
+            <input type="range" id="axis3-input" min="-180" max="180"></input>
+            <label id="axis3-label">Ось 3, кисть</label><br>
+            <input type="checkbox" id="magnet-sw"><br>
+            <label>Вкл/выкл магнитный захват</label><br>
+        </div>
+        <div id="IK_div" class="control_div">
+            <input type="number" id="x-input" value="10"></input>
+            <label>Ось x</label><br>
+            <input type="number" id="y-input" value="10"></input>
+            <label>Ось y</label><br>
+            <input type="number" id="z-input" value="10"></input>
+            <label>Ось z</label><br>
+            <input type="range" id="w-input" min="-180" max="180"></input>
+            <label>Ось w, наклон</label><br>
+        </div>
+    </div>
+    <script>
+        tt_in = document.getElementById("turntable-input")
+        a1_in = document.getElementById("axis1-input")
+        a2_in = document.getElementById("axis2-input")
+        a3_in = document.getElementById("axis3-input")
+        mg_in = document.getElementById("magnet-sw")
+
+        x_in = document.getElementById("x-input")
+        y_in = document.getElementById("y-input")
+        z_in = document.getElementById("z-input")
+        w_in = document.getElementById("w-input")
+
+        len = {a: 20.0, b: 24.5, c: 4.0}
+
+        function hypot(a, b) {
+            return Math.sqrt(a*a+b*b)
+        }
+
+        function radians(x) {
+            return 0.017453293*x
+        }
+
+        function degrees(x) {
+            return x/0.017453293
+        }
+
+        function calcInverseKinematics(x, y, z, w) {
+            r = hypot(x, y);
+
+            angle_t = undefined
+            
+            if(x>0)  angle_t = Math.atan(y/x);
+            if(x<0 && y>=0)   angle_t = Math.atan(y/x) + Math.PI;
+            if(x<0 && y<0)   angle_t = Math.atan(y/x) - Math.PI;
+            if(x==0 && y>0)  angle_t = Math.PI/2;
+            if(x==0 && y<0)  angle_t = Math.PI/-2;
+            if(x==0 && y==0) return false;
+
+            x = r;
+            y = z;
+
+            w = radians(w)
+
+            x2 = x + Math.cos(w) * len.c;
+            y2 = y + Math.sin(w) * len.c;
+            distance = hypot(x2, y2);
+
+            if (distance > len.a + len.b) return false;
+
+            angle_a = Math.PI/2 - Math.acos((len.a*len.a + distance*distance - len.b*len.b)/(2*len.a*distance)) - ((y>=0)?1:-1)*Math.acos(x2 / distance);
+        
+            angle_b = Math.PI - Math.acos((len.a*len.a + len.b*len.b - distance*distance)/(2.0*len.a*len.b));
+            
+            angle_c = Math.PI/2 - angle_a - angle_b + w;
+
+            tt_in.value = Math.round(degrees(angle_t));
+            a1_in.value = Math.round(degrees(angle_a));
+            a2_in.value = Math.round(degrees(angle_b));
+            a3_in.value = Math.round(degrees(angle_c));
+
+            return true;
+        }
+
+        function setIK() {
+            calcInverseKinematics(Number(x_in.value), Number(y_in.value), Number(z_in.value), Number(w_in.value))
+            sendData()
+        }
+
+        let socket = new WebSocket("ws://192.168.1.53/ws")
+        
+        socket.onclose = e => {alert("Robot is disconnected!")}
+        socket.onopen  = e => {alert("Robot is connected!")}
+        socket.onerror = e => {alert("Websocket error!")}
+
+        function sendData() {
+            socket.send([tt_in.value, a1_in.value, a2_in.value, a3_in.value, mg_in.checked*1])
+            console.log([tt_in.value, a1_in.value, a2_in.value, a3_in.value, mg_in.checked*1])
+        }
+
+        tt_in.addEventListener('mouseup', function (evt) {
+            console.log(this.value, this.id)
+            sendData()
+        })
+        tt_in.addEventListener('input', function (evt) {
+            document.getElementById(this.id.replace("input", "label")).innerHTML = "Поворотный стол: " + this.value
+        })
+
+        a1_in.addEventListener('mouseup', function (evt) {
+            console.log(this.value, this.id)
+            sendData()
+        })
+        a1_in.addEventListener('input', function (evt) {
+            document.getElementById(this.id.replace("input", "label")).innerHTML = "Ось 1, плечо: " + this.value
+        })
+
+        a2_in.addEventListener('mouseup', function (evt) {
+            console.log(this.value, this.id)
+            sendData()
+        })
+        a2_in.addEventListener('input', function (evt) {
+            document.getElementById(this.id.replace("input", "label")).innerHTML = "Ось 2, локоть: " + this.value
+        })
+
+        a3_in.addEventListener('mouseup', function (evt) {
+            console.log(this.value, this.id)
+            sendData()
+        })
+        a3_in.addEventListener('input', function (evt) {
+            document.getElementById(this.id.replace("input", "label")).innerHTML = "Ось 3, кисть: " + this.value
+        })
+
+        mg_in.addEventListener('input', function (evt) {
+           sendData()
+        })
+
+        x_in.addEventListener('input', function (evt) {
+            setIK()
+        })
+
+        y_in.addEventListener('input', function (evt) {
+            setIK()
+        })
+        z_in.addEventListener('input', function (evt) {
+            setIK()
+        })
+        w_in.addEventListener('mouseup', function (evt) {
+            setIK()
+        })
+        
+    </script>
+</body>
+</html>

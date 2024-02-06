@@ -1,0 +1,18 @@
+body {
+    background-color:rgb(35, 77, 98);
+    color: aliceblue;
+    font-family: Arial, Helvetica, sans-serif;
+    height: 100%;
+}
+
+.bigDiv {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10vmin;
+}
+
+.control_div {
+    display: grid;
+    height: 100%;
+}
